@@ -1,0 +1,1 @@
+train_alignedreid-swa.py -d veri -a densenet121 --test_distance global_local --reranking --labelsmooth --width 64 --height 64 --max_epoch 10 --train-batch 16 --optim nadam --save_dir log --stepsize 50 --eval_freq 1 --test-batch 16 --swa_start 161 --swa_lr 0.0001 --swa

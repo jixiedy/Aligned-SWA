@@ -1,0 +1,17 @@
+==========
+Args:Namespace(arch='densenet121', cuhk03_classic_split=False, cuhk03_labeled=False, dataset='veri', eval_freq=1, eval_step=-1, evaluate=False, gamma=0.1, gpu_devices='0', height=64, htri_only=False, labelsmooth=True, lr=0.0002, margin=0.3, max_epoch=10, num_instances=4, optim='nadam', print_freq=10, reranking=True, resume=None, root='data', save_dir='log', save_freq=25, seed=1, split_id=0, start_epoch=0, start_eval=0, stepsize=50, swa=True, swa_c_epochs=1, swa_epoch=161, swa_lr=0.0001, swa_start=161.0, test_batch=16, test_distance='global_local', train_batch=16, unaligned=False, use_cpu=False, use_metric_cuhk03=False, weight_decay=0.0005, width=64, workers=4)
+==========
+Currently using GPU 0
+Initializing dataset veri
+=> VeRi loaded
+Dataset statistics:
+  ------------------------------
+  subset   | # ids | # images
+  ------------------------------
+  train    |   576 |    37778
+  query    |   200 |     1678
+  gallery  |   200 |    11579
+  ------------------------------
+  total    |   776 |    51035
+  ------------------------------
+Initializing model: densenet121

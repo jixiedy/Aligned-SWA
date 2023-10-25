@@ -36,9 +36,7 @@ from util.optimizers import init_optim
 from util.samplers import RandomIdentitySampler
 from IPython import embed
 
-# argparse :命令行解析. 创建解析器对象ArgumentParser，可以添加参数。description：描述程序
 parser = argparse.ArgumentParser(description='Train AlignedReID with cross entropy loss and triplet hard loss')
-# Datasets, add_argument()方法，用来指定程序需要接受的命令参数
 parser.add_argument('--root', type=str, default='data', help="root path to data directory")  
 parser.add_argument('-d', '--dataset', type=str, default='boxcars116k',
                     choices=data_manager.get_names())                
@@ -64,21 +62,20 @@ parser.add_argument('--use-metric-cuhk03', action='store_true',
 parser.add_argument('--labelsmooth', action='store_true', help="label smooth")      
 parser.add_argument('--optim', type=str, default='adam', help="optimization algorithm (see optimizers.py)")
 parser.add_argument('--swa_epoch', default=161, type=int, help="optimization algorithm (see optimizers.py)")
-# 迭代终止时的那个 epoch，不管从第几个 epoch 开始，都计算到这个 epoch 就停止
+
 parser.add_argument('--max_epoch', default=300, type=int, help="maximum epochs to run")  # num-epoch --> max-epoch    
-parser.add_argument('--start-epoch', default=0, type=int, help="manual epoch number (useful on restarts)")   # 接着上次训练时从哪个 epoch 开始
+parser.add_argument('--start-epoch', default=0, type=int, help="manual epoch number (useful on restarts)")
 parser.add_argument('--train-batch', default=32, type=int, help="train batch size")
 parser.add_argument('--test-batch', default=32, type=int, help="test batch size")
 
-# lr:网络的基础学习速率,一般设一个很小的值,然后根据迭代到不同次数,对学习速率做相应的变化.lr过大不会收敛,过小收敛过慢
 parser.add_argument('--lr', '--learning-rate', default=0.0002, type=float,
                     help="initial learning rate")
 parser.add_argument('--stepsize', default=150, type=int,
-                    help="stepsize to decay learning rate (>0 means this is enabled)")  # 每150次epoch衰减学习率的大小:：乘以gamma
+                    help="stepsize to decay learning rate (>0 means this is enabled)")  
 parser.add_argument('--gamma', default=0.1, type=float,
-                    help="learning rate decay")                                         # 学习率变化的比率
+                    help="learning rate decay")                                         
 parser.add_argument('--weight-decay', default=5e-04, type=float,
-                    help="weight decay (default: 5e-04)")                  # 权值衰量,用于防止过拟合               
+                    help="weight decay (default: 5e-04)")                              
 
 parser.add_argument('--save_freq', type=int, default=25, metavar='N', help='save frequency (default: 25)')
 parser.add_argument('--eval_freq', type=int, default=5, metavar='N', help='evaluation frequency (default: 5)')
@@ -89,25 +86,24 @@ parser.add_argument('--swa_c_epochs', type=int, default=1, metavar='N',
                     help='SWA model collection frequency/cycle length in epochs (default: 1)')
 
 # triplet hard loss
-parser.add_argument('--margin', type=float, default=0.3, help="margin for triplet loss")      # 三元组损失误差的达标要求
+parser.add_argument('--margin', type=float, default=0.3, help="margin for triplet loss")      
 parser.add_argument('--num-instances', type=int, default=4,
-                    help="number of instances per identity")                # 每一个 identity 的例子数
+                    help="number of instances per identity")                
 parser.add_argument('--htri-only', action='store_true', default=False,
-                    help="if this is True, only htri loss is used in training")    # 是否只用三元组损失中的难三元组损失进行训练
+                    help="if this is True, only htri loss is used in training")    
 # Architecture
-parser.add_argument('-a', '--arch', type=str, default='resnet50', choices=models.get_names())    # 使用哪个神经网络模型
+parser.add_argument('-a', '--arch', type=str, default='resnet50', choices=models.get_names())    
 # Miscs
 parser.add_argument('--print-freq', type=int, default=10, help="print frequency")
 parser.add_argument('--seed', type=int, default=1, help="manual seed")
 
-# resume:训练好的模型所在的路径，测试时需要从该路径下导入模型。如果想接着上次的模型继续训练，可以从这里导入上次的模型
 # parser.add_argument('--resume', type=str, default='', metavar='PATH')
 parser.add_argument('--resume', type=str, default=None, metavar='checkpoint', help='checkpoint to resume training from (default: None)')
-parser.add_argument('--evaluate', action='store_true', help="evaluation only")  # 使用该选项后，程序只进行测试，不再训练
+parser.add_argument('--evaluate', action='store_true', help="evaluation only")  
 parser.add_argument('--eval-step', type=int, default=-1,
                     help="run evaluation for every N epochs (set to -1 to test after training)")
 parser.add_argument('--start-eval', type=int, default=0, help="start to evaluate after specific epoch")
-parser.add_argument('--save_dir', type=str, default='log')          # 测试时输出的信息将会保存在这个路径下面
+parser.add_argument('--save_dir', type=str, default='log')          
 parser.add_argument('--use_cpu', action='store_true', help="use cpu")
 parser.add_argument('--gpu-devices', default='0', type=str, help='gpu device ids for CUDA_VISIBLE_DEVICES')
 parser.add_argument('--reranking', action= 'store_true', help= 'result re_ranking')
@@ -285,65 +281,22 @@ def main():
     # 新建一个优化器，指定优化方法、要调整的 model 参数、学习率、权重衰减
     optimizer = init_optim(args.optim, model.parameters(), args.lr, args.weight_decay)    # optim: 最优化
 
-    # if args.stepsize > 0:
-    #     scheduler = lr_scheduler.StepLR(optimizer, step_size=args.stepsize, gamma=args.gamma)
+    if args.stepsize > 0:
+	# 默认
+        scheduler = lr_scheduler.StepLR(optimizer, step_size=args.stepsize, gamma=args.gamma)
 
-        # 以余弦函数为周期，并在每个周期最大值时重新设置学习率。以初始学习率为最大学习率，以 2∗Tmax 2*Tmax2∗Tmax 为周期，在一个周期内先下降，后上升。
-        # T_max(int)- 一次学习率周期的迭代次数，即 T_max 个 epoch 之后重新设置学习率。
-        # eta_min(float)- 最小学习率，即在一个周期中，学习率最小会下降到 eta_min，默认值为 0。
-        # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=30, eta_min=4e-08)
-
-
+        # 余弦
+        # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=30, eta_min=4e-08) #　T_max：最大迭代次数
         # 自定义调整学习率 LambdaLR
-        #为不同参数组设定不同学习率调整策略。调整规则为，lr=base_lr∗lmbda(self.last_epoch)
-        #fine-tune 中十分有用，我们不仅可为不同的层设定不同的学习率，还可以为其设定不同的学习率调整策略。
         #lambda1 = lambda epoch: epoch // 30
         #lambda2 = lambda epoch: 0.95 ** epoch
         #scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1, lambda2])
-
-        # """
         # 自适应调整学习率 ReduceLROnPlateau
-        # 当某指标不再变化（下降或升高），调整学习率，这是非常实用的学习率调整策略。
-        # 例如，当验证集的 loss 不再下降时，进行学习率调整；或者监测验证集的 accuracy，当
-        # accuracy 不再上升时，则调整学习率。
-
         # torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, 
         # verbose=False, threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=0, eps=1e-08)
-
-        # 参数：
-        # mode(str)- 模式选择，有 min 和 max 两种模式， min 表示当指标不再降低(如监测loss)， max 表示当指标不再升高(如监测 accuracy)。
-        # factor(float)- 学习率调整倍数(等同于其它方法的 gamma)，即学习率更新为 lr = lr * factor
-        # patience(int)- 忍受该指标多少个 step 不变化，当忍无可忍时，调整学习率。
-        # verbose(bool)- 是否打印学习率信息， print(‘Epoch {:5d}: reducing learning rate’
-        # ’ of group {} to {:.4e}.’.format(epoch, i, new_lr))
-        # threshold_mode(str)- 选择判断指标是否达最优的模式，有两种模式， rel 和 abs。
-        # 当 threshold_mode == rel，并且 mode == max 时， dynamic_threshold = best * ( 1 +threshold )；
-        # 当 threshold_mode == rel，并且 mode == min 时， dynamic_threshold = best * ( 1 -threshold )；
-        # 当 threshold_mode == abs，并且 mode== max 时， dynamic_threshold = best + threshold ；
-        # 当 threshold_mode == rel，并且 mode == max 时， dynamic_threshold = best - threshold
-        # threshold(float)- 配合 threshold_mode 使用。
-        # cooldown(int)- “冷却时间“，当调整学习率之后，让学习率调整策略冷静一下，让模型再训
-        # 练一段时间，再重启监测模式。
-        # min_lr(float or list)- 学习率下限，可为 float，或者 list，当有多个参数组时，可用 list 进行设置。
-        # eps(float)- 学习率衰减的最小值，当学习率变化小于 eps 时，则不调整学习率。
-        # 原文：https://blog.csdn.net/shanglianlm/article/details/85143614 
-        # """
-        # scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, patience=10, verbose=True,'min')
-
-        # Assuming optimizer has two groups.
-        # lambda1 = lambda epoch: epoch // 30
-        # lambda2 = lambda epoch: 0.95 ** epoch
-        # scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1, lambda2])
-        # Assuming optimizer uses lr = 0.05 for all groups
-        # lr = 0.05   if epoch < 30, lr = 0.005  if 30 <= epoch < 80, lr = 0.0005   if epoch >= 80
         # scheduler = lr_scheduler.MultiStepLR(optimizer, milestones=[100, 300], gamma=args.gamma, last_epoch=-1)
-
         # lr_scheduler.ExponentialLR(optimizer, args.gamma, last_epoch=-1)
-
-        # # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max, eta_min=0, last_epoch=-1)  #　T_max：最大迭代次数
-        # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, args.train_batch * args.max_epoch, eta_min=0, last_epoch=-1)
-
-   
+	
     start_epoch = args.start_epoch
     # 导入已有的模型
     # if args.resume:

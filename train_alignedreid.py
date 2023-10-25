@@ -208,51 +208,12 @@ def main():
     criterion_metric = TripletLossAlignedReID(margin=args.margin)
     optimizer = init_optim(args.optim, model.parameters(), args.lr, args.weight_decay)
 
-    """
-    自适应调整学习率 ReduceLROnPlateau
-    当某指标不再变化（下降或升高），调整学习率，这是非常实用的学习率调整策略。
-    例如，当验证集的 loss 不再下降时，进行学习率调整；或者监测验证集的 accuracy，当
-    accuracy 不再上升时，则调整学习率。
-
-    torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, mode='min', factor=0.1, patience=10, 
-    verbose=False, threshold=0.0001, threshold_mode='rel', cooldown=0, min_lr=0, eps=1e-08)
-
-    参数：
-    mode(str)- 模式选择，有 min 和 max 两种模式， min 表示当指标不再降低(如监测loss)， max 表示当指标不再升高(如监测 accuracy)。
-    factor(float)- 学习率调整倍数(等同于其它方法的 gamma)，即学习率更新为 lr = lr * factor
-    patience(int)- 忍受该指标多少个 step 不变化，当忍无可忍时，调整学习率。
-    verbose(bool)- 是否打印学习率信息， print(‘Epoch {:5d}: reducing learning rate’
-    ’ of group {} to {:.4e}.’.format(epoch, i, new_lr))
-    threshold_mode(str)- 选择判断指标是否达最优的模式，有两种模式， rel 和 abs。
-    当 threshold_mode == rel，并且 mode == max 时， dynamic_threshold = best * ( 1 +threshold )；
-    当 threshold_mode == rel，并且 mode == min 时， dynamic_threshold = best * ( 1 -threshold )；
-    当 threshold_mode == abs，并且 mode== max 时， dynamic_threshold = best + threshold ；
-    当 threshold_mode == rel，并且 mode == max 时， dynamic_threshold = best - threshold
-    threshold(float)- 配合 threshold_mode 使用。
-    cooldown(int)- “冷却时间“，当调整学习率之后，让学习率调整策略冷静一下，让模型再训
-    练一段时间，再重启监测模式。
-    min_lr(float or list)- 学习率下限，可为 float，或者 list，当有多个参数组时，可用 list 进行设置。
-    eps(float)- 学习率衰减的最小值，当学习率变化小于 eps 时，则不调整学习率。
-    原文：https://blog.csdn.net/shanglianlm/article/details/85143614 
-    """
     if args.stepsize > 0:
         # scheduler = lr_scheduler.StepLR(optimizer, step_size=args.stepsize, gamma=args.gamma)
-
-        # 以余弦函数为周期，并在每个周期最大值时重新设置学习率。以初始学习率为最大学习率，以 2∗Tmax 2*Tmax2∗Tmax 为周期，在一个周期内先下降，后上升。
-        # T_max(int)- 一次学习率周期的迭代次数，即 T_max 个 epoch 之后重新设置学习率。
-        # eta_min(float)- 最小学习率，即在一个周期中，学习率最小会下降到 eta_min，默认值为 0。
-        # scheduler = lr_scheduler.CosineAnnealingLR(optimizer, T_max=10, eta_min=4e-08)
-
-        # 自定义调整学习率 LambdaLR
-        #为不同参数组设定不同学习率调整策略。调整规则为，lr=base_lr∗lmbda(self.last_epoch)
-        #fine-tune 中十分有用，我们不仅可为不同的层设定不同的学习率，还可以为其设定不同的学习率调整策略。
         #lambda1 = lambda epoch: epoch // 30
         #lambda2 = lambda epoch: 0.95 ** epoch
         #scheduler = lr_scheduler.LambdaLR(optimizer, lr_lambda=[lambda1, lambda2])
-
         scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'min')
-
-
     start_epoch = args.start_epoch
     if args.resume:
         print("Loading checkpoint from '{}'".format(args.resume))
@@ -263,7 +224,7 @@ def main():
         optimizer.load_state_dict(checkpoint['optimizer'])
 
     if use_gpu:
-        # 在模块级实现数据并行性,如果多GPU optimizer也要：optimizer = nn.DataParallel(optimizer, device_ids=device_ids)
+        # 多GPU optimizer：optimizer = nn.DataParallel(optimizer, device_ids=device_ids)
         model = nn.DataParallel(model).cuda()
 
     if args.evaluate:
@@ -307,13 +268,6 @@ def main():
         if args.stepsize > 0: scheduler.step(train_result['loss'])
 
         outputs, features, local_features = train_result['outputs'], train_result['features'], train_result['local_features']
-
-        # print('outputs_shape', outputs.shape)
-        # print('features_shape', features.shape)
-        # print('local_features_sq_shape', local_features.squeeze(2).shape)
-        # print('local_features_shape', local_features.shape)
-        # print('local_features_permute_shape', local_features.permute(2, 0, 1).shape)
-        # print('local_features_permute_sq_shape', local_features.permute(2, 0, 1).squeeze(0).shape)
         
         # dpi =100
         # w_in_inch, h_in_inch = float(args.width)/dpi, float(args.height)/dpi
@@ -512,7 +466,6 @@ def main():
     print("==> Best Rank1 {:.1%}, achieved at epoch {}".format(best_rank1, best_rank1_epoch))
     print("==> Best Rank5 {:.1%}, achieved at epoch {}".format(best_rank5, best_rank5_epoch))
     print("==> Best Rank10 {:.1%}, achieved at epoch {}".format(best_rank10, best_rank10_epoch))
-    print('------------------------------------------------------------------------------')
 
     elapsed = round(time.time() - start_time)
     elapsed = str(datetime.timedelta(seconds=elapsed))
